@@ -96,6 +96,85 @@ fn main() {
 
 
 
+    // Moves and Indexed Content
+
+    // We've mentioned a move leaves the source uninitialized. But not every kind of value owner is prepared to become uninitialized. For example:
+    // Build a vector of the strings "101", "102", ... "105"
+    let mut v = Vec::new();
+    for i in 101 .. 106 {
+        v.push(i.to_string());
+    }
+
+    // Pull out random elements from the vector.
+    let third = v[2];
+    let fifth = v[4];
+
+    // For this to work, Rust would somehow need to remember that the third and fifth elements of the vector have become uninitialized, and track that information until the vector is dropped. In the most general case, vectors would need to carry around extra info with them to indicate which elements are live and which have become uninitialized. That is clearly not the right behaviour for a systems programming language. A vector should be nothing but a vector. In fact, Rust rejects the preceding code with the following error:
+    // ownership_move_out_of_vectors.rs...
+    // let third = v[2];
+    //              help: consider using a reference instead `&v[2]`
+
+    // It also makes a similar complaint about the move to fifth. Rust in the error recommends using a reference, but what if we really want to move an element out of a vector? We'd need to find a method that does so in a way that respects the limitations of the type.
+
+    // Here are three possibilities:
+    // Build a vector of the strings "101", "102", ... "105"
+    let mut v = Vec::new();
+    for i in 101 .. 106 {
+        v.push(i.to_string());
+    }
+
+    // 1. Pop a value off the end of the vector:
+    // .unwrap() will give us the embedded T (Result<T, E> or Option<T>) if there is one. If instead not a T, but an E or None, it will panic.
+    let fifth = v.pop().unwrap();
+    assert_eq!(fifth, "105");
+
+    // 2. Move a value out of the middle of the vector, and move the last element into its spot:
+    let second = v.swap_remove(1);
+    assert_eq!(second, "102")
+
+    // 3. Swap in another value for the one we're taking out:
+    let third = std::mem::replace(&mut v[2], "substitute".to_string());
+    assert_eq!(third, "103");
+
+    // Let's see what's left of our vector.
+    assert_eq!(v, vec!["101", "104", "substitute"]);
+
+    // Each of the above methods moves an element out of the vector, but does so in a way that leaves the vector in a state that is fully populated, if perhaps smaller.
+
+    // Collection types like Vec also generally offer methods to consume all their elements in a loop:
+    let v = vec!["liberte".to_string(),
+        "egalite".to_string(),
+        "fraternity".to_string()];
+
+    for mut s in v {
+        s.push("!");
+        println!("{}", s);
+    }
+
+    // When we pass the vector to the loop directly, as in for ... in v, this moves the vector out of v, leaving v uninitialized. The for loop's internal machinery takes ownership of the vector, and dissects it into its elements. At each iteration, the loop moves another element to the variable s. Since s now owns the string, we're able to modify it in the loop body before printing it. Since the vector itself is no longer visible to the code, nothing can observe it mid-loop in some partially emptied state.
+
+    // If we do find ourselves needing to move a value out of an owner that the compiler can't track, we might consider changing the owner's type to something that can dynamically track whether it has a value or not. For example, here's a variant on the earlier example:
+    struct Person { name: Option<String>, birth: i32 }
+
+    let mut composers = Vec::new();
+    composers.push(Person { name: Some("Palestrina".to_string()), birth: 1525 });
+
+    // We can't do this:
+    let first_name = composers[0].name;
+
+    // That will just elicit the same "cannot move out of indexed content" error shown earlier. But because we've changed the type of the name field from String to Option<String>, that means that None is a legitimate value for the field to hold, so this works:
+    let first_name = std::mem::replace(&mut composers[0].name, None);
+    assert_eq!(first_name, Some("Palestrina".to_string()));
+    assert_eq!(composers[0].name, None);
+
+    // The replace call moves out the value of composer[0].name, leaving None in its place, and passes ownership of the original value to its caller. In fact, using Option this way is common enough that the type provides a take method for this very purpose. We could write the preceding manipulation more legibly as follows:
+    let first_name = composers[0].name.take();
+
+    // This call to take has the same effect as the earlier call to replace.
+
+
+
+    
     
 
 }
