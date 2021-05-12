@@ -68,6 +68,34 @@ fn main() {
 
 
 
+    // Moves and Control Flow
+
+    // The previous examples have very simple control flow. How do moves interact with more complicated code? The general principle is that, if it's possible for a variable to have had its value moved away, and it hasn't definitely been given a new value since, it's considered uninitialized. For example, if a variable still has a value after evaluating an if expression's condition, then we can use it in both branches:
+    let x = vec![10, 20, 30];
+    if c {
+        f(x); //... ok to move from x here
+    } else {
+        g(x); // ... and ok to also move from x here
+    }
+    h(x) // bad: x is uninitialized here if either path uses it
+
+    // For similar reasons, moving from a variable in a loop is forbidden:
+    let x = vec![10, 20, 30];
+    while f() {
+        g(x); // bad: x would be moved in the first iteration,
+              // uninitialized in second
+    }
+
+    // That is, unless we've definitely given it a new value by the next iteration:
+    let mut x = vec![10, 20, 30];
+    while f() {
+        g(x); // move from x
+        x = h(); // give x a fresh value
+    }
+    e(x);
+
+
+
     
 
 }
