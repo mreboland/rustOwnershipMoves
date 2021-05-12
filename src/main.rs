@@ -174,6 +174,67 @@ fn main() {
 
 
 
+    // Copy Types: The Exception to Moves
+
+    // The examples shown of values being moved involve vectors, strings, and other types that could potentially use a lot of memory and be expensive to copy. Moves keep ownership of such types clear and assignment cheap. But for simpler types like integers or characters, this sort of careful handling really isn't necessary.
+
+    // Compare what happens in memory when assigning a String vs an i32 value:
+    let str1 = "somnambulance".to_string();
+    let str2 = str1;
+
+    let num1: i32 = 36;
+    let num2 = num1;
+
+    // See page 143 for diagram
+    // As with vectors, assignment moves str1 to str2, so that we don't end up with two strings responsible for freeing the same buffer. However, it's not the same with num1 and 2. An i32 is simply a pattern of bits in memory. It doesn't own any heap resources or really depend on anything other than the bytes it comprises. By the time we've moved its bits to num2, we've made a completely independent copy of num1.
+
+    // Rust designates these exceptions as Copy Types. Assigning a value of a Copy Type copies the value, rather than moving it. The source of the assignment remains initialized and usable, withe same value it had before. Passing Copy Types to functions and constructors behaves similarly.
+
+    // The standard Copy Types include all the machine integer and floating-point numeric types, the char and bool types, and a few others. A tuple or fixed-size array of Copy Types is itself a Copy Type. Examples of non Copy Types are: Box<T>, String, MutexGuard, File Type, etc. because they own a heap-allocated buffer.
+
+    // As a rule of thumb, any type that needs to do something special when a value is dropped cannot be Copy. A Vec needs to free its elements; a File needs to close its file handle; a MutexGuard needs to unlock its mutex. Duplication of such types would leave it unclear which value was now responsible for the original's resources.
+
+    // What about types we define ourselves? By default, struct and enum types are not Copy:
+    struct Label { number: u32 }
+
+    fn print(l: Label) { println!("STAMP: {}", l.number);}
+
+    let l = Label { number: 3 };
+    print(l);
+    println!("My label number is: {}", l.number);
+
+    // The above won't compile, Rust complains:
+    // ownership_struct.rs...
+    // print(l);
+    //      - value moved here
+    // println...
+    //              value used here after move
+
+    // Since Label is not Copy, passing it to print moved ownership of the value to the print function, which then dropped it before returning. But this is silly, a LAbel is nothing but an i32 with pretensions. There's no reason passing l to print should move the value.
+
+    // But user-defined types being non-Copy is only the default. If all the fields of our struct are themselves Copy, then we can make the type Copy as well by placing the attribute #[derive(Copy, Clone)] above the definition, like so:
+    #[derive(Copy, Clone)]
+    struct Label { number: u32 }
+
+    // With this change, the preceding code compiles without complaint. However if we try this on a type whose fields are not all Copy, it doesn't work. Compiling the following code:
+    #[derive(Copy, Clone)]
+    struct StringLabel { name: String }
+
+    // elicits this error:
+    // ... the trait `Copy` may not be implement for this type
+    // ownership_string_label.rs...
+    // #[derive...]
+    //  struct StringLabel...
+    //          -------- this field does not implement `Copy`
+
+    // Why aren't user-defined types automatically Copy, assuming they're eligible? Whether a type is Copy or not has a big effect on how code is allowed to use it. Copy types are more flexible since assignment and related operations don't leave the original uninitialized. But for a type's implementer, the opposite is true. Copy types are very limited in which types they can contain, whereas non-Copy types can use heap allocation and own other sorts of resources. So making a type Copy represents a serious commitment on the part of the implementer. If it's necessary to change it to non-Copy later, much of the code that uses it will probably need to be adapted.
+
+    // To reiterate, in Rust, every move is a byte-for-byte, shallow copy that leaves the source uninitialized. Copies are the same, except that the source remains initialized.
+
+    // Copy and Clone were mentioned vaguely in the above example. They are examples of traits, Rust's open-ended facility for categorizing types based on what you can do with them. More details on them in chap 11, and 13.
+
+
+
     
     
 
