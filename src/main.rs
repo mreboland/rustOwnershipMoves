@@ -17,10 +17,10 @@ fn main() {
     // For C++ instead of reference counts, the language makes a copy of each list to t and u. So instead of 3 variables referencing a list with 3 values as in Python, C++ will have 3 lists, with 9 total values, tripling the memory usage. This is a large issue to contend with in C++.
     // See page 132 and 133 for diagrams to illustrate this.
 
-    // In a sense, C++ and Pyton have chosen opposite trade-offs. Python makes assignment cheap, at the expense of requiring reference counting (and in the general case, garbage collection). C++ keeps the ownership of all the memory clear, at the expense of making assignment carry out a deep copy of the object. Deep copies can be bad as they can be expensive and there are more practical alternatives.
+    // In a sense, C++ and Python have chosen opposite trade-offs. Python makes assignment cheap, at the expense of requiring reference counting (and in the general case, garbage collection). C++ keeps the ownership of all the memory clear, at the expense of making assignment carry out a deep copy of the object. Deep copies can be bad as they can be expensive and there are more practical alternatives.
 
     // So how does the above work in Rust?
-    let s = vect!["udon".to_string(), "ramen".to_string(), "soba".to_string()];
+    let s = vec!["udon".to_string(), "ramen".to_string(), "soba".to_string()];
     let t = s;
     let u = s;
 
@@ -31,10 +31,43 @@ fn main() {
 
     // So like Python Rust's assignment is cheap, but it also is like C++ where ownership is always clear. A win win. The price of this however is that we must explicitly ask for copies when we want them. To do so, me must call the vector's clone method which perform a deep copy of the vector and its elements:
     let s = vec!["udon".to_string(), "ramen".to_string(), "soba".to_string()];
-    let t = s.clone()
+    let t = s.clone();
     let u = s.clone();
     // We can also re-create Python's behaviour by using Rust's reference-counted pointer types which will be discussed shortly.
 
 
+
+    // More Operations That Move
+
+    // In the examples this far, we've shown initializations, providing values for variables as they come into scope in a let statement. Assigning to a variable is slightly different, in that if you move a value into a variable that was already initialized, Rust drops the variable's prior value. For example:
+    let mut s = "Govinda".to_string();
+    s = "Siddhartha".to_string(); // value "Govinda" dropped here
+
+    // In this code, when the program assigns the string "siddhartha" to s, its prior value "Govinda" gets dropped first. But consider the following:
+    let mut s ="Govinda".to_string();
+    let t = s;
+    s = "Siddhartha".to_string(); // nothing is dropped here
+
+    // This time, t has taken ownership of the original string from s, so that by the time we assign to s, it is uninitialized. In this scenario, no string is dropped.
+
+    // Rust applies move semantics to almost any use of a value. Passing arguments to functions moves ownership to the function's parameters; returning a value from a function moves ownership to the caller. Building a tuple moves the values into the tuple, and so on.
+    // For example using a previous example:
+    struct Person { name: String, birth: i32 }
+
+    let mut composers = Vec::new();
+    composers.push(Person { name: "Palestrina".to_string(), birth: 1525 });
+    // This code shows several places at which moves occur, beyong initialization and assignment:
+    // 1. Returning values from a function
+        // The call Vec::new() constructs a new vector, and returns, not a pointer to the vector, but the vector itself. Its ownership moves from Vec::new to the variable composers. Similarly, the to_string call returns a fresh String instance.
+    // 2. Constructing new values
+        // The name field of the new Person structure is initialized with the return value of to_string. The structure takes ownership of the string.
+    // 3. Passing values to a function
+        // The entire Person structure, not just a pointer, is passed to the vector's push method, which moves it onto the end of the structure. The vector takes ownership of the Person, and thus becomes the indirect owner of the name String as well.
+
+    // Moving values around like this may sound inefficient, but there are two things to keep in mind. First, the moves always apply to the value proper, not the heap storage they own. For vectors and strings, the value proper is a three-word header alone; the potentially large element arrays and text buffers sit where they are in the heap. Second, the Rust compiler's code generation is good at "seeing through" all these moves. In practice, the machine code often stores the value directly where it belongs.
+
+
+
+    
 
 }
