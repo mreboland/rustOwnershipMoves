@@ -235,7 +235,43 @@ fn main() {
 
 
 
-    
+    // Rc and Arc: Shared Ownership
+
+    // Although most values have unique owners in typical Rust code, in some cases it's difficult to find every value a single owner that has the lifetime you need. We'd like the value to simply live until everyone's done using it. For these cases, Rust provides the reference-counted pointer types Rc and Arc. These are completely safe to use.
+
+    // The Rc and Arc types are very similar. The only difference between them is that an Arc is safe to share between threads directly. The name Arc is short for atomic reference count whereas a plain Rc uses faster non-thread-safe code to update its reference count. If we don't need the share the pointers between threads, there' no reason to pay the performance penalty of an Arc, so just use Rc. Rust will prevent us from accidentally passing one across a thread boundary. Otherwise they are equivalent so we'll only focus on Rc.
+
+    // Earlier on we showed Python code and how it uses reference counts to manage it values' lifetimes. We can use Rc to get a similar effect:
+    use std::rc::Rc;
+
+    // Rust can infer all these types; written out for clarity
+    let s: Rc<String> = Rc::new("shirataki".to_string());
+    let t: Rc<String> = s.clone();
+    let u: Rc<String> = s.clone();
+
+    // For any type T, an Rc<T> value is a pointer to a heap-allocated T that has had a reference count affixed to it. Cloning an Rc<T> value does not copy the T, instead, it simply creates another pointer to it, and increments the reference count. See page 149 for diagram.
+
+    // Each of the three Rc<String> pointers is referring to the same block of memory, which holds a reference count and space for the String. The usual ownership rules apply to the Rc pointers themselves, and when the last extant Rc is dropped, Rust drops the string as well.
+
+    // We can use any of String's usual methods directly on an Rc<String>:
+    assert!(s.contains("shira"));
+    assert_eq!(t.find("taki"), Some(5));
+    println!("{} are quite chewy, almost bouncy, but lack flavour", u);
+
+    // A value owned by an Rc pointer is immutable. If we try to add some text to the end of the string:
+    s.push_str("noodles");
+
+    // Rust will decline:
+    // error: cannot borrow immutable borrowed content as mutable
+    // ownership_rc_mutability.rs...
+
+    // Rust's memory and thread-safety guarantees depend on ensuring that no value is ever simultaneously shared and mutable. Rust assumes the referent of an Rc pointer might in general be shared, so it must not be mutable. More on that in chapter 5.
+
+    // One well-known problem with using reference counts to manage memory is that, if there are ever two reference-counted values that point to each other, each will hold the other's reference count above zero, so the values will never be freed (see page 149 for diagram).
+
+    // It is possible to leak values in Rust this way, but it's rare. We cannot create a cycle without, at some point, making an older value point to a newer value. This obviously requires the older value to be mutable. Since Rc pointers hold their referents immutable, it's not normally possible to create a cycle. Rust does provide ways to create mutable portions of otherwise immutable values. This is called interior mutability and is covered in the section of the same name in chap 9. If we combine those techniques with Rc pointers, we can create a cycle and leak memory.
+
+    // Moves and reference-counted pointers are two ways to relax the rigidity of the ownership tree. In chap 5, we look at a third way, borrowing references to values. Combining and understanding ownership and references, we'll have overcome the biggest hurdle of Rust and will be able to take advantage of its unique strengths.
     
 
 }
